@@ -1,7 +1,9 @@
 # Recursive make
 
 This tiny program is a wrapper around GNU Make.
-It allows you to run a make target that exists in a parent directory.
+It allows you to run a make target that exists in any ancestor directory.
+
+It will however stop traveling upwards at the root of any git repository you are inside of.
 
 ## Installation
 
