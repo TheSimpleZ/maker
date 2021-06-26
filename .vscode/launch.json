@@ -11,9 +11,9 @@
             "mode": "auto",
             "program": "${fileDirname}",
             "args": [
-                "tar"
+                "targetx"
             ],
-            "cwd": "./test1"
+            "cwd": "./example/subfolder"
         }
     ]
 }

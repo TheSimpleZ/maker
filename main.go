@@ -1,109 +1,90 @@
 package main
 
 import (
-	"bufio"
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"os"
 	"os/exec"
-	"strings"
+	"regexp"
+
+	"github.com/creack/pty"
 )
+
+
+func makefileHasTarget(target string, path string) (bool, error) {
+	fileContent, err := ioutil.ReadFile(path)
+	if err != nil {
+		return false, err
+	}
+
+	stringMatch := fmt.Sprintf(`\n?%s:`, target)
+
+	return regexp.Match(stringMatch, fileContent)
+}
+
+func exists(name string) (bool, error) {
+	_, err := os.Stat(name)
+	if errors.Is(err, os.ErrNotExist) {
+	  return false, nil
+	}
+	return err == nil, err
+}
+
+func findMakeFileWithTarget(cwd, target string) (string, error) {
+	hasMakefile, err := exists(cwd + "Makefile")
+	if err != nil {
+		return "", err
+	}
+
+	if hasMakefile {
+		commandExists, err := makefileHasTarget(target, cwd + "Makefile")
+		if err != nil {
+			return "", err
+		}
+
+		if commandExists {
+			return cwd, nil
+		}
+	}
+
+	if isGitRoot, _ := exists(cwd + ".git"); !isGitRoot {
+		return findMakeFileWithTarget("./." + cwd, target)
+	}
+
+
+	return "", errors.New("Could not find a makefile with target: " + target)
+}
 
 func runMake(dir string, args ...string) error {
 	dirCommand := []string{"-C", dir}
 	allArgs := append(dirCommand, args...)
 	cmd := exec.Command("make",  allArgs...)
 
-    stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	stderr, err := cmd.StderrPipe()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-    if err := cmd.Start(); err != nil {
-		log.Fatal(err)
-	}
-
-    scannerOut := bufio.NewScanner(stdout)
-    scannerOut.Split(bufio.ScanLines)
-
-	scannerErr := bufio.NewScanner(stderr)
-    scannerErr.Split(bufio.ScanLines)
-
-	go func() {
-		for scannerOut.Scan() {
-			m := scannerOut.Text()
-			fmt.Println(m)
-		}
-	}()
-
-	for scannerErr.Scan() {
-        m := scannerErr.Text()
-        fmt.Println(m)
+	f, err := pty.Start(cmd)
+    if err != nil {
+        return err
     }
 
-
-
-    if err := cmd.Wait(); err != nil {
-		log.Fatal(err)
-	}
-
-	return nil
-}
-
-
-
-func checkIfCommandExists(command string, path string) (bool, error) {
-	fileContent, err := ioutil.ReadFile(path)
-
-	if os.IsNotExist(err) {
-		return false, nil
-	} else if err != nil {
-		return false, err
-	}
-	fileContentString := string(fileContent)
-	stringMatch := fmt.Sprintf("PHONY:%s\n%s:", command, command)
-	if strings.Contains(strings.ReplaceAll(fileContentString, " ", ""), stringMatch) {
-		return true, nil
-	}
-
-	return false, nil
-}
-
-
-func runRecurse(cwd string) error {
-	commandExists, err := checkIfCommandExists(os.Args[1], cwd + "Makefile")
-	if err != nil {
-		return err
-	} else if commandExists {
-		err := runMake(cwd, os.Args[1:]...)
-		return err
-	} else if _, err := os.Stat(cwd + ".git"); os.IsNotExist(err) {
-		err := runRecurse("./." + cwd)
-		if err != nil {
-			return err
-		}
-	} else {
-		return errors.New("Could not find a makefile with target: " + os.Args[1])
-	}
+    io.Copy(os.Stdout, f)
 
 	return nil
 }
 
 func main() {
 	if len(os.Args[1:]) < 1 {
-		fmt.Println("You must provide a make target")
-        return
+		log.Fatalln("You must provide a make target")
 	}
-	err := runRecurse("./")
 
+	makeFileDir, err := findMakeFileWithTarget("./", os.Args[1])
 	if err != nil {
-		fmt.Println("An error occurred while running make:", err.Error())
+		log.Fatalln("Could not find a makefile:", err.Error())
+	}
+
+	err = runMake(makeFileDir, os.Args[1:]...)
+	if err != nil {
+		log.Fatalln("Could not run makefile:", err.Error())
 	}
 }
