@@ -1,3 +1,3 @@
-PHONY: targetx
+PHONY: targety
 targety:
 	echo "Hello Y"
