@@ -15,6 +15,8 @@ Then run:
 curl 'https://i.jpillora.com/TheSimpleZ/maker!!' | bash
 ```
 
+To uninstall, simply delete `/usr/local/bin/maker`.
+
 Or download the appropriate binary for your system from the releases page and put in in your `$PATH`.
 
 ## Usage
