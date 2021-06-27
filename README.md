@@ -12,7 +12,7 @@ and that it's available on your `$PATH`.
 
 Then run:
 ```bash
-curl https://i.jpillora.com/TheSimpleZ/maker! | bash
+curl 'https://i.jpillora.com/TheSimpleZ/maker!!' | bash
 ```
 
 Or download the appropriate binary for your system from the releases page and put in in your `$PATH`.
