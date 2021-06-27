@@ -28,3 +28,15 @@ alias make="maker"
 ```
 
 _Put the above in your ~/.*rc file to make it permanent._
+
+## Example
+
+Clone this repo and run:
+
+```
+go build
+cd example/subfolder
+../../maker targetx
+```
+
+targetx exists in the makefile of the /example folder.

@@ -1,3 +1,3 @@
 PHONY: targetx
 targetx:
-	docker build ../
+	docker build .
