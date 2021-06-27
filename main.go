@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 
 	"github.com/creack/pty"
@@ -34,13 +35,14 @@ func exists(name string) (bool, error) {
 }
 
 func findMakeFileWithTarget(cwd, target string) (string, error) {
-	hasMakefile, err := exists(cwd + "Makefile")
+	makefilePath := filepath.Join(cwd, "Makefile")
+	hasMakefile, err := exists(makefilePath)
 	if err != nil {
 		return "", err
 	}
 
 	if hasMakefile {
-		commandExists, err := makefileHasTarget(target, cwd + "Makefile")
+		commandExists, err := makefileHasTarget(target, makefilePath)
 		if err != nil {
 			return "", err
 		}
@@ -50,12 +52,18 @@ func findMakeFileWithTarget(cwd, target string) (string, error) {
 		}
 	}
 
-	if isGitRoot, _ := exists(cwd + ".git"); !isGitRoot {
-		return findMakeFileWithTarget("./." + cwd, target)
+	isGitRoot, err := exists(filepath.Join(cwd, ".git"))
+	if err != nil {
+		return "", err
 	}
 
 
-	return "", errors.New("Could not find a makefile with target: " + target)
+	if !isGitRoot && cwd != "/" {
+		parentDir := filepath.Dir(cwd)
+		return findMakeFileWithTarget(parentDir, target)
+	} else {
+		return "", fmt.Errorf("Stopped at %v and found no make target '%v'", cwd, target)
+	}
 }
 
 func runMake(dir string, args ...string) error {
@@ -78,13 +86,18 @@ func main() {
 		log.Fatalln("You must provide a make target")
 	}
 
-	makeFileDir, err := findMakeFileWithTarget("./", os.Args[1])
+	cwd, err := os.Getwd()
 	if err != nil {
-		log.Fatalln("Could not find a makefile:", err.Error())
+		log.Fatalln("Could not get current working directory:", err)
+	}
+
+	makeFileDir, err := findMakeFileWithTarget(cwd, os.Args[1])
+	if err != nil {
+		log.Fatalln("Could not find a makefile:", err)
 	}
 
 	err = runMake(makeFileDir, os.Args[1:]...)
 	if err != nil {
-		log.Fatalln("Could not run makefile:", err.Error())
+		log.Fatalf("Could not run makefile in %v: %v\n", makeFileDir, err)
 	}
 }
